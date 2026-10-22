@@ -3,6 +3,7 @@ use std::process::ExitCode;
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
+use clap::Parser;
 use serde_json::Value;
 
 const APPDETAIL_URL: &str = "https://purpletvapi.b-cdn.net/appdetail";
@@ -18,27 +19,22 @@ const DNS_FIELDS: &[&str] = &[
     "support_guide_dns",
 ];
 
-const DEFAULT_MAX_LAYERS: usize = 10;
-const USAGE: &str = "usage: iptv-debug <login-code> [--max-layers N]";
+/// List the server domains a Purple TV login code points to.
+#[derive(Parser)]
+#[command(version)]
+struct Args {
+    /// Login code entered in the app
+    code: String,
+
+    /// Maximum number of base64 layers to peel off the response
+    #[arg(long, default_value_t = 10)]
+    max_layers: usize,
+}
 
 fn main() -> ExitCode {
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    let (code, max_layers) = match args.as_slice() {
-        [code] => (code, DEFAULT_MAX_LAYERS),
-        [code, flag, n] if flag == "--max-layers" => match n.parse() {
-            Ok(n) => (code, n),
-            Err(_) => {
-                eprintln!("--max-layers expects a number, got {n:?}");
-                return ExitCode::FAILURE;
-            }
-        },
-        _ => {
-            eprintln!("{USAGE}");
-            return ExitCode::FAILURE;
-        }
-    };
+    let args = Args::parse();
 
-    match run(code, max_layers) {
+    match run(&args.code, args.max_layers) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("error: {e}");
